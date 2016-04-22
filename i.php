@@ -13,25 +13,26 @@
  *   $secret = 'mysecret';
  *   $imgHttp = 'http://somesite.com/image.jpg';
  *   $crc = hash('crc32b', $secret . $imgHttp);
- *   $imgHttps = 'https://mysite.com/i.php?' . $crc . base64_encode($imgHttp);
+ *   $cache = '=300'; // 5min
+ *   $imgHttps = 'https://mysite.com/i.php?' . $crc . urlencode(base64_encode($imgHttp)) . $cache;
  *   echo '<img src="$imgHttp" title="Original image served with http">';
  *   echo '<img src="$imgHttps" title="Image served with https">';
  * ?>
  */
 
 $contentTypes = [
-    "image/jpeg" => true,
-    "image/gif" => true,
-    "image/png" => true,
-    "image/tiff" => true
+    'image/jpeg' => true,
+    'image/gif' => true,
+    'image/png' => true,
+    'image/tiff' => true
 ];
 $fileTypes = [
-    "jpg" => "image/jpeg",
-    "jpeg" => "image/jpeg",
-    "gif" => "image/gif",
-    "png" => "image/png",
-    "tif" => "image/tiff",
-    "tiff" => "image/tiff"
+    'jpg' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'gif' => 'image/gif',
+    'png' => 'image/png',
+    'tif' => 'image/tiff',
+    'tiff' => 'image/tiff'
 ];
 
 $secret = 'mysecret';
@@ -40,7 +41,7 @@ $arg = key($_GET);
 $crc = substr($arg, 0, 8);
 $url = urldecode(base64_decode(substr($arg, 8)));
 
-if (hash("crc32b", $secret . $url) === $crc) {
+if (hash('crc32b', $secret . $url) === $crc) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -62,14 +63,19 @@ if (hash("crc32b", $secret . $url) === $crc) {
     }
     
     if ($valid) {
-        header("HTTP/1.1 200 OK");
-        header("Content-Type: " . $type);
-        header("Cache-Control: s-maxage=31536000"); // one year
+        $ttl = current($_GET);
+        if (!$ttl) {
+            $ttl = 2678400; // 1 month
+            // $ttl = 31536000; // 1 year
+        }
+        header('HTTP/1.1 200 OK');
+        header('Content-Type: ' . $type);
+        header('Cache-Control: s-maxage=' . $ttl);
         echo $result;
     } else {
-        header("HTTP/1.1 415 Unsupported Media Type");
+        header('HTTP/1.1 415 Unsupported Media Type');
     }
     
 } else {
-    header("HTTP/1.1 404 Not Found");
+    header('HTTP/1.1 404 Not Found');
 }
