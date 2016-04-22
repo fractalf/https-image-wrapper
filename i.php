@@ -19,30 +19,57 @@
  * ?>
  */
 
+$contentTypes = [
+    "image/jpeg" => true,
+    "image/gif" => true,
+    "image/png" => true,
+    "image/tiff" => true
+];
 $fileTypes = [
     "jpg" => "image/jpeg",
     "jpeg" => "image/jpeg",
     "gif" => "image/gif",
-    "png" => "image/png"
+    "png" => "image/png",
+    "tif" => "image/tiff",
+    "tiff" => "image/tiff"
 ];
 
 $secret = 'mysecret';
 
 $arg = key($_GET);
 $crc = substr($arg, 0, 8);
-$url = base64_decode(substr($arg, 8));
-$fileType = pathinfo($url, PATHINFO_EXTENSION);
+$url = urldecode(base64_decode(substr($arg, 8)));
 
-if (hash("crc32b", $secret . $url) === $crc && isset($fileTypes[$fileType])) {
+if (hash("crc32b", $secret . $url) === $crc) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_URL, $url);
     $result = curl_exec($ch);
-
-    header("HTTP/1.1 200 OK");
-    header("Content-Type: " . $fileTypes[$fileType]);
-    header("Cache-Control: s-maxage=31536000"); // one year
-    echo $result;
+    $info = curl_getinfo($ch);
+    
+    $valid = false;
+    $type = strtolower($info['content_type']);
+    if ($type && $contentTypes[$type]) {
+        $valid = true;
+    } else {
+        $url = explode('?', $url)[0]; // strip away ?foo=bar
+        $fileType = strtolower(pathinfo($url, PATHINFO_EXTENSION));
+        if (isset($fileTypes[$fileType])) {
+            $valid = true;
+            $type = $fileTypes[$fileType];
+        }
+    }
+    
+    if ($valid) {
+        header("HTTP/1.1 200 OK");
+        header("Content-Type: " . $type);
+        header("Cache-Control: s-maxage=31536000"); // one year
+        echo $result;
+    } else {
+        header("HTTP/1.1 415 Unsupported Media Type");
+    }
+    
 } else {
     header("HTTP/1.1 404 Not Found");
 }
