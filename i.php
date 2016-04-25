@@ -20,6 +20,8 @@
  * ?>
  */
 
+$timeout = 1; // 1s timeout
+
 $contentTypes = [
     'image/jpeg' => true,
     'image/gif' => true,
@@ -45,8 +47,13 @@ if (hash('crc32b', $secret . $url) === $crc) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_URL, $url);
     $result = curl_exec($ch);
+    if ($result === false) {
+        header('HTTP/1.1 408 Request Timeout');
+        exit;
+    }
     $info = curl_getinfo($ch);
     
     $valid = false;
